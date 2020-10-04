@@ -54,6 +54,7 @@ class Basis:
         return lambda x: np.sum([u[i] * self.get_basis(i)(x) for i in range(self._number_fun)])
 
     def get_one_parameter_unitary_group(self, potential):
+        # ist basiswechsel zu inverse square root von S numerisch stabiler?
         H = self.get_kinetic_energy() + self.get_potential_energy(potential)
         S = np.linalg.inv(self.get_overlap_matrix())
         H = np.matmul(S, H)
@@ -95,37 +96,29 @@ class ShapeFunctions(Basis):
         return (1 / (2 * self._mass)) * (diag + n_diag + n_diag.T)
 
 
+class Sine(Basis):
+    def __init__(self, number_fun, length, mass):
+        super().__init__(number_fun, length, mass)
 
+    def get_basis_representation(self, fun):
+        """
+        computes the basis representation of fun.
 
-def sine_basis(length, number_fun):
-    return lambda n: lambda x: np.sqrt(2 / length) * np.sin(np.pi * (n + 1) * x / length)
+        :param fun: lambda of the wave function.
+        """
+        M=1000
+        X = np.linspace(0, self._length, M)
+        ls = list()
+        for i in range(N):
+            ls.append(np.sum(np.vectorize(self.get_basis(i))(X[:-1]) * np.vectorize(fun)(X[:-1]) * np.diff(X)))
+        return np.array(ls)
 
-def init_psi(N, phi, M=1000):
-    """
-    computes the basis representation of phi.
-    :param N: number of basis vectors.
-    :param M: number of äquidistant subdivisions for numeric integration.
-    :param phi: lambda of the wave function.
-    """
-    X = np.linspace(0, L, M)
-    ls = list()
-    for i in range(N):
-        ls.append(np.sum(np.vectorize(psi(i))(X[:-1])*np.vectorize(phi)(X[:-1])*np.diff(X)))
-    return np.array(ls)
+    def get_basis(self):
+        return lambda n: lambda x: np.sqrt(2 / self._length) * np.sin(np.pi * (n + 1) * x / self._length)
 
+    def get_overlap_matrix(self):
+        return np.eye(self._number_fun)
 
+    def get_kinetic_energy(self):
+        return (1 / (2 * self._mass)) * np.square(np.pi/self._length)*np.diag(np.square(np.arange(self._number_fun)))
 
-
-
-def assemble_hamiltonian(X, V, M=1000):
-    return get_kinetic_energy(X) + compute_potential_energy(X, V, M)
-
-
-def get_integrator(t, X, V, M=10000):
-    H = assemble_hamiltonian(X, V)
-    # D, U = np.linalg.eig(get_overlap_integral(X))
-    # S = np.matmul(np.matmul(U, np.diag(1/np.sqrt(D))), U.T)
-    D, U = np.linalg.eig(np.matmul(np.linalg.inv(get_overlap_integral(X)), H))
-
-    # rewrite this with a solver and two 1-d arrays instead of full matrix.
-    return np.matmul(np.matmul(U, np.diag(np.exp(D * t * 1j))), U.T)
