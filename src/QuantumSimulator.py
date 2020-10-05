@@ -29,7 +29,7 @@ class Basis:
         :param V: potential energy lambda.
         :param M: number of Equidistant point for numeric integration.
         """
-        W = np.zeros((self._number_fun, self._number_fun))
+        W = np.zeros((self._number_fun, self._number_fun), dtype=complex)
         X = np.linspace(0, self._length, self._integration_num)
         test = np.vectorize(V)(X[:-1])
         test = X[:-1][test != 0]
@@ -40,7 +40,7 @@ class Basis:
             indices = np.where(self._mask[i, :])[0]
             indices = indices[indices >= i]
             for j in indices:
-                temp = np.sum(np.vectorize(self.get_basis()(i))(X[:-1]) *
+                temp = np.sum(np.conj(np.vectorize(self.get_basis()(i))(X[:-1])) *
                               np.vectorize(self.get_basis()(j))(X[:-1]) * V_vec * np.diff(X))
                 W[i, j] = temp
                 W[j, i] = temp
@@ -125,4 +125,31 @@ class Sine(Basis):
 
     def get_kinetic_energy(self):
         return (1 / (2 * self._mass)) * np.square(np.pi / self._length) * np.diag(
-            np.square(np.arange(self._number_fun)))
+            np.square(np.arange(self._number_fun) + 1))
+
+
+class Fourier(Sine):
+    def __init__(self, number_fun, length, mass):
+        super().__init__(number_fun, length, mass)
+
+    def get_basis_representation(self, fun):
+        """
+        computes the basis representation of fun.
+
+        :param fun: lambda of the wave function.
+        """
+        X = np.linspace(0, self._length, self._integration_num)
+        ls = list()
+        for i in range(self._number_fun):
+            ls.append(np.sum(np.conj(np.vectorize(self.get_basis()(i))(X[:-1])) * np.vectorize(fun)(X[:-1]) * np.diff(X)))
+        return np.array(ls)
+
+    def get_basis(self):
+        return lambda n: lambda x: np.sqrt(1 / self._length) * np.exp(2 * np.pi * 1j * n * x / self._length)
+
+    def get_overlap_matrix(self):
+        return np.eye(self._number_fun)
+
+    def get_kinetic_energy(self):
+        return (1 / (2 * self._mass)) * np.square(2 * np.pi / self._length) * np.diag(
+            np.square(np.arange(self._number_fun) + 1))
