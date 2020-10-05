@@ -152,4 +152,4 @@ class Fourier(Sine):
 
     def get_kinetic_energy(self):
         return (1 / (2 * self._mass)) * np.square(2 * np.pi / self._length) * np.diag(
-            np.square(np.arange(self._number_fun) + 1))
+            np.square(np.arange(self._number_fun)))
