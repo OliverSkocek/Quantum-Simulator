@@ -43,7 +43,7 @@ class Basis:
                 temp = np.sum(np.conj(np.vectorize(self.get_basis()(i))(X[:-1])) *
                               np.vectorize(self.get_basis()(j))(X[:-1]) * V_vec * np.diff(X))
                 W[i, j] = temp
-                W[j, i] = temp
+                W[j, i] = np.conj(temp)
         return W
 
     def get_callable_from_base_representation(self, u):
@@ -60,7 +60,7 @@ class Basis:
         S = np.linalg.inv(self.get_overlap_matrix())
         H = np.matmul(S, H)
         D, M = np.linalg.eig(H)
-        return lambda t: np.matmul(M, np.matmul(np.diag(np.exp(1j * D * t)), M.T))
+        return lambda t: np.matmul(M, np.matmul(np.diag(np.exp(1j * D * t)), np.matrix.getH(M)))
 
     def get_density_from_base_representation(self, u):
         return lambda x: np.square(np.abs(self.get_callable_from_base_representation(u)(x)))
@@ -130,7 +130,7 @@ class Sine(Basis):
 
 class Fourier(Sine):
     def __init__(self, number_fun, length, mass):
-        super().__init__(number_fun, length, mass)
+        super().__init__(2 * (number_fun // 2) + 1, length, mass)
 
     def get_basis_representation(self, fun):
         """
@@ -141,15 +141,17 @@ class Fourier(Sine):
         X = np.linspace(0, self._length, self._integration_num)
         ls = list()
         for i in range(self._number_fun):
-            ls.append(np.sum(np.conj(np.vectorize(self.get_basis()(i))(X[:-1])) * np.vectorize(fun)(X[:-1]) * np.diff(X)))
+            ls.append(
+                np.sum(np.conj(np.vectorize(self.get_basis()(i))(X[:-1])) * np.vectorize(fun)(X[:-1]) * np.diff(X)))
         return np.array(ls)
 
     def get_basis(self):
-        return lambda n: lambda x: np.sqrt(1 / self._length) * np.exp(2 * np.pi * 1j * n * x / self._length)
+        return lambda n: lambda x: np.sqrt(1 / self._length) * np.exp(
+            2 * np.pi * 1j * (n - self._number_fun // 2) * x / self._length)
 
     def get_overlap_matrix(self):
-        return np.eye(self._number_fun)
+        return self.get_potential_energy(V=lambda x: 1.0 + (x * 0.0))
 
     def get_kinetic_energy(self):
         return (1 / (2 * self._mass)) * np.square(2 * np.pi / self._length) * np.diag(
-            np.square(np.arange(self._number_fun)))
+            np.square(np.arange(-self._number_fun // 2, self._number_fun // 2)))
