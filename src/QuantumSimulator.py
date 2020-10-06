@@ -155,3 +155,48 @@ class Fourier(Sine):
     def get_kinetic_energy(self):
         return (1 / (2 * self._mass)) * np.square(2 * np.pi / self._length) * np.diag(
             np.square(np.arange(-self._number_fun // 2, self._number_fun // 2)))
+
+
+class ShapeFunctionsRing(ShapeFunctions):
+    def __init__(self, number_fun, length, mass):
+        super().__init__(number_fun, length, mass)
+        temp = np.roll(np.eye(number_fun), 1)
+        self._mask = np.eye(number_fun) + temp + temp.T
+        self.X = np.linspace(0, self._length, self._number_fun + 1)
+        self.faces = [(self.X[(j - 1) % self._number_fun], self.X[j], self.X[(j + 1) % self._number_fun])
+                      for j in range(self._number_fun)]
+
+    def get_basis_representation(self, fun):
+        return fun(self.X[:-1])
+
+    def _get_face_base_fn(self, face, x):
+        face = list(face)
+        if face[0] < face[1]:
+            if face[2] < face[1]:
+                face[2] = self._length
+            if face[0] < x <= face[1]:
+                return x / (face[1] - face[0]) - face[0] / (face[1] - face[0])
+            elif face[1] < x <= face[2]:
+                return - x / (face[2] - face[1]) + face[2] / (face[2] - face[1])
+            else:
+                return 0 * x
+        else:
+            if face[1] <= x <= face[2]:
+                return - x / (face[2] - face[1]) + face[2] / (face[2] - face[1])
+            elif face[0] <= x <= self._length:
+                return x / (self._length - face[0]) - face[0] / (self._length - face[0])
+            else:
+                return 0 * x
+
+    def get_basis(self):
+        return lambda k: lambda x: self._get_face_base_fn(self.faces[k], x)
+
+    def get_overlap_matrix(self):
+        return self.get_potential_energy(V=lambda x: 1.0 + (x * 0.0))
+
+    def get_kinetic_energy(self):
+        a = np.diff(self.X)
+        diag = np.eye(self._number_fun) * (1 / a + 1 / np.roll(a, shift=1))
+        n_diag = np.diag(-1 / a)
+        n_diag = np.roll(n_diag, shift=1, axis=1)
+        return (1 / (2 * self._mass)) * (diag + n_diag + n_diag.T)
